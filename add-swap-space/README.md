@@ -6,9 +6,14 @@ This script allows you to interactively add swap space to your Linux system.
 
 ### One-liner command to run the script:
 ```bash
-curl -s https://raw.githubusercontent.com/Ficky-Dev/misc-scripts/main/add-swap-space/add-swap-space.sh | sudo bash -s 4
+bash <(curl -fsSL https://raw.githubusercontent.com/Ficky-Dev/misc-scripts/main/add-swap-space/add-swap-space.sh) 4
 ```
 *(Replace "4" with your desired swap size in GB)*
+
+Or if you need sudo:
+```bash
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/Ficky-Dev/misc-scripts/main/add-swap-space/add-swap-space.sh) 4
+```
 
 Or if you have the file locally:
 ```bash
