@@ -1,11 +1,18 @@
 #!/bin/bash
-# Script to add swap space interactively
+# Script to add swap space
 
-# Ask user for swap size
-read -p "Enter swap size in GB (e.g., 2): " SWAP_SIZE_GB
+# Check if swap size is provided as argument
+if [ -z "$1" ]; then
+  # Ask user for swap size interactively
+  read -p "Enter swap size in GB (e.g., 2): " SWAP_SIZE_GB
+else
+  SWAP_SIZE_GB="$1"
+fi
 
 # Validate input
 if ! [[ "$SWAP_SIZE_GB" =~ ^[0-9]+$ ]]; then
+  echo "Usage: $0 [SWAP_SIZE_IN_GB]"
+  echo "Example: $0 2"
   echo "Error: Please enter a valid number."
   exit 1
 fi
