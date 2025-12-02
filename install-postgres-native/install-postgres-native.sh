@@ -29,28 +29,15 @@ DB_VERSION=${DB_VERSION:-16}
 read -p "Enter PostgreSQL Port [5432]: " DB_PORT
 DB_PORT=${DB_PORT:-5432}
 
-# 3. DB Name
-read -p "Enter Database Name [myappdb]: " DB_NAME
-DB_NAME=${DB_NAME:-myappdb}
-
-# 4. DB User
-read -p "Enter Database Username [myuser]: " DB_USER
-DB_USER=${DB_USER:-myuser}
-
-# 5. Postgres Superuser Password (Optional - highly recommended)
+# 3. Postgres Superuser Password (Required)
 echo -e "${BLUE}Setting up PostgreSQL superuser (postgres) password${NC}"
 echo -e "${YELLOW}Note: This password allows full administrative access to PostgreSQL${NC}"
-echo -e "${YELLOW}Leave blank to use default peer authentication${NC}"
 echo ""
+
 while true; do
-    echo -n "Enter PostgreSQL superuser password (optional): "
+    echo -n "Enter PostgreSQL superuser password: "
     read -s POSTGRES_PASS
     echo
-
-    if [ -z "$POSTGRES_PASS" ]; then
-        echo -e "${YELLOW}Skipping superuser password configuration${NC}"
-        break
-    fi
 
     if [ ${#POSTGRES_PASS} -lt 8 ]; then
         echo -e "${RED}Superuser password must be at least 8 characters${NC}"
@@ -64,24 +51,10 @@ while true; do
     echo -e "${RED}Passwords do not match! Please try again.${NC}"
 done
 
-# 6. DB Password (Hidden input)
-while true; do
-    echo -n "Enter Database Password: "
-    read -s DB_PASS
-    echo
-    echo -n "Confirm Database Password: "
-    read -s DB_PASS_CONFIRM
-    echo
-    [ "$DB_PASS" = "$DB_PASS_CONFIRM" ] && break
-    echo -e "${RED}Passwords do not match! Please try again.${NC}"
-done
-
 echo -e "${GREEN}>>> Configuration Set:${NC}"
 echo "Version: $DB_VERSION"
 echo "Port: $DB_PORT"
-echo "Database: $DB_NAME"
-echo "User: $DB_USER"
-echo "Postgres Superuser Password: $([ -n "$POSTGRES_PASS" ] && echo "SET" || echo "NOT SET")"
+echo "Postgres Superuser Password: SET"
 echo "--------------------------------------------------"
 
 # --- INSTALLATION SECTION ---
@@ -115,55 +88,26 @@ systemctl restart postgresql
 
 echo -e "${BLUE}>>> 6. Setting up Database & Extension...${NC}"
 
-# Set postgres superuser password if provided
-if [ -n "$POSTGRES_PASS" ]; then
-    echo -e "${BLUE}>>> Setting postgres superuser password...${NC}"
-    sudo -u postgres psql -c "ALTER USER postgres PASSWORD '$POSTGRES_PASS';"
-fi
-
-# We use sudo -u postgres to execute psql commands
+# Setup postgres superuser password and enable pgvector extension
+echo -e "${BLUE}>>> Setting up postgres superuser and pgvector extension...${NC}"
 sudo -u postgres psql <<EOF
--- Create User if not exists
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DB_USER') THEN
-    CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';
-  ELSE
-    ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';
-  END IF;
-END
-\$\$;
+-- Set postgres superuser password
+ALTER USER postgres PASSWORD '$POSTGRES_PASS';
 
--- Create DB if not exists (Postgres doesn't support "CREATE DATABASE IF NOT EXISTS" easily inside a block, 
--- so we rely on the script continuing or handling the error gracefully. 
--- For a fresh install, this standard command is fine:
-SELECT 'CREATE DATABASE $DB_NAME OWNER $DB_USER' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec
-
--- Switch to DB
-\c $DB_NAME
-
--- Enable Vector Extension
+-- Enable pgvector extension in default postgres database
 CREATE EXTENSION IF NOT EXISTS vector;
-
--- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
-ALTER DATABASE $DB_NAME OWNER TO $DB_USER;
-GRANT ALL ON SCHEMA public TO $DB_USER;
 EOF
 
 echo -e "${GREEN}==================================================${NC}"
 echo -e "${GREEN}   INSTALLATION COMPLETE!                         ${NC}"
 echo -e "${GREEN}==================================================${NC}"
-echo -e "Database:              ${BLUE}$DB_NAME${NC}"
-echo -e "User:                  ${BLUE}$DB_USER${NC}"
 echo -e "Postgres Superuser:    ${BLUE}postgres${NC}"
 echo -e "Port:                  ${BLUE}$DB_PORT${NC}"
 echo -e "Extension:             ${BLUE}pgvector (Enabled)${NC}"
-echo -e "Postgres Password:     ${BLUE}$([ -n "$POSTGRES_PASS" ] && echo "SET" || echo "NOT SET")${NC}"
+echo -e "Postgres Password:     ${BLUE}SET${NC}"
 echo ""
 echo -e "${RED}IMPORTANT: Connection Information${NC}"
 echo "For postgres superuser: ${YELLOW}sudo -u postgres psql -p $DB_PORT${NC}"
-echo "For application user:  ${YELLOW}psql -h localhost -p $DB_PORT -U $DB_USER -d $DB_NAME${NC}"
 echo ""
 echo -e "${RED}IMPORTANT: Firewall Step${NC}"
 echo "Run this command to allow external access:"
