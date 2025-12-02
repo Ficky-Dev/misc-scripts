@@ -78,7 +78,15 @@ cp /etc/postgresql/$DB_VERSION/main/postgresql.conf /etc/postgresql/$DB_VERSION/
 
 # Allow connection from anywhere and set custom port
 sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
-sed -i "s/#port = 5432/port = $DB_PORT/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
+
+# Set port configuration - handle both commented and uncommented cases
+sed -i "s/^#port = 5432/port = $DB_PORT/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
+sed -i "s/^port = 5432/port = $DB_PORT/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
+
+# If no port line exists, add it
+if ! grep -q "^port = " /etc/postgresql/$DB_VERSION/main/postgresql.conf; then
+    echo "port = $DB_PORT" >> /etc/postgresql/$DB_VERSION/main/postgresql.conf
+fi
 
 # Allow password login (MD5/SCRAM) - Check if line exists to avoid duplicates
 grep -q "0.0.0.0/0" /etc/postgresql/$DB_VERSION/main/pg_hba.conf || echo "host    all             all             0.0.0.0/0            scram-sha-256" >> /etc/postgresql/$DB_VERSION/main/pg_hba.conf
