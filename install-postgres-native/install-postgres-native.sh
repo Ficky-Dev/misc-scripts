@@ -25,15 +25,46 @@ echo -e "${BLUE}==================================================${NC}"
 read -p "Enter PostgreSQL Version [16]: " DB_VERSION
 DB_VERSION=${DB_VERSION:-16}
 
-# 2. DB Name
+# 2. Port Number
+read -p "Enter PostgreSQL Port [5432]: " DB_PORT
+DB_PORT=${DB_PORT:-5432}
+
+# 3. DB Name
 read -p "Enter Database Name [myappdb]: " DB_NAME
 DB_NAME=${DB_NAME:-myappdb}
 
-# 3. DB User
+# 4. DB User
 read -p "Enter Database Username [myuser]: " DB_USER
 DB_USER=${DB_USER:-myuser}
 
-# 4. DB Password (Hidden input)
+# 5. Postgres Superuser Password (Optional - highly recommended)
+echo -e "${BLUE}Setting up PostgreSQL superuser (postgres) password${NC}"
+echo -e "${YELLOW}Note: This password allows full administrative access to PostgreSQL${NC}"
+echo -e "${YELLOW}Leave blank to use default peer authentication${NC}"
+echo ""
+while true; do
+    echo -n "Enter PostgreSQL superuser password (optional): "
+    read -s POSTGRES_PASS
+    echo
+
+    if [ -z "$POSTGRES_PASS" ]; then
+        echo -e "${YELLOW}Skipping superuser password configuration${NC}"
+        break
+    fi
+
+    if [ ${#POSTGRES_PASS} -lt 8 ]; then
+        echo -e "${RED}Superuser password must be at least 8 characters${NC}"
+        continue
+    fi
+
+    echo -n "Confirm PostgreSQL superuser password: "
+    read -s POSTGRES_PASS_CONFIRM
+    echo
+    [ "$POSTGRES_PASS" = "$POSTGRES_PASS_CONFIRM" ] && break
+    echo -e "${RED}Passwords do not match! Please try again.${NC}"
+done
+
+# 6. DB Password (Hidden input)
 while true; do
     echo -n "Enter Database Password: "
     read -s DB_PASS
@@ -47,8 +78,10 @@ done
 
 echo -e "${GREEN}>>> Configuration Set:${NC}"
 echo "Version: $DB_VERSION"
+echo "Port: $DB_PORT"
 echo "Database: $DB_NAME"
 echo "User: $DB_USER"
+echo "Postgres Superuser Password: $([ -n "$POSTGRES_PASS" ] && echo "SET" || echo "NOT SET")"
 echo "--------------------------------------------------"
 
 # --- INSTALLATION SECTION ---
@@ -70,8 +103,9 @@ echo -e "${BLUE}>>> 4. Configuring Access...${NC}"
 # Backup config file first
 cp /etc/postgresql/$DB_VERSION/main/postgresql.conf /etc/postgresql/$DB_VERSION/main/postgresql.conf.bak
 
-# Allow connection from anywhere
+# Allow connection from anywhere and set custom port
 sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
+sed -i "s/#port = 5432/port = $DB_PORT/" /etc/postgresql/$DB_VERSION/main/postgresql.conf
 
 # Allow password login (MD5/SCRAM) - Check if line exists to avoid duplicates
 grep -q "0.0.0.0/0" /etc/postgresql/$DB_VERSION/main/pg_hba.conf || echo "host    all             all             0.0.0.0/0            scram-sha-256" >> /etc/postgresql/$DB_VERSION/main/pg_hba.conf
@@ -80,6 +114,12 @@ echo -e "${BLUE}>>> 5. Restarting Service...${NC}"
 systemctl restart postgresql
 
 echo -e "${BLUE}>>> 6. Setting up Database & Extension...${NC}"
+
+# Set postgres superuser password if provided
+if [ -n "$POSTGRES_PASS" ]; then
+    echo -e "${BLUE}>>> Setting postgres superuser password...${NC}"
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD '$POSTGRES_PASS';"
+fi
 
 # We use sudo -u postgres to execute psql commands
 sudo -u postgres psql <<EOF
@@ -114,11 +154,17 @@ EOF
 echo -e "${GREEN}==================================================${NC}"
 echo -e "${GREEN}   INSTALLATION COMPLETE!                         ${NC}"
 echo -e "${GREEN}==================================================${NC}"
-echo -e "Database:  ${BLUE}$DB_NAME${NC}"
-echo -e "User:      ${BLUE}$DB_USER${NC}"
-echo -e "Port:      ${BLUE}5432${NC}"
-echo -e "Extension: ${BLUE}pgvector (Enabled)${NC}"
+echo -e "Database:              ${BLUE}$DB_NAME${NC}"
+echo -e "User:                  ${BLUE}$DB_USER${NC}"
+echo -e "Postgres Superuser:    ${BLUE}postgres${NC}"
+echo -e "Port:                  ${BLUE}$DB_PORT${NC}"
+echo -e "Extension:             ${BLUE}pgvector (Enabled)${NC}"
+echo -e "Postgres Password:     ${BLUE}$([ -n "$POSTGRES_PASS" ] && echo "SET" || echo "NOT SET")${NC}"
+echo ""
+echo -e "${RED}IMPORTANT: Connection Information${NC}"
+echo "For postgres superuser: ${YELLOW}sudo -u postgres psql -p $DB_PORT${NC}"
+echo "For application user:  ${YELLOW}psql -h localhost -p $DB_PORT -U $DB_USER -d $DB_NAME${NC}"
 echo ""
 echo -e "${RED}IMPORTANT: Firewall Step${NC}"
 echo "Run this command to allow external access:"
-echo "ufw allow 5432/tcp"
+echo "ufw allow $DB_PORT/tcp"

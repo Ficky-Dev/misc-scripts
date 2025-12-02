@@ -283,6 +283,106 @@ random_page_cost = 1.1  # For SSD storage
 - [pgvector GitHub Repository](https://github.com/pgvector/pgvector)
 - [PostgreSQL Security Best Practices](https://www.postgresql.org/docs/current/security.html)
 
+## 🗑️ Uninstallation
+
+### Automated Uninstaller
+
+A comprehensive uninstallation script is provided to completely remove PostgreSQL and all data:
+
+```bash
+# Download and run the uninstaller
+wget https://raw.githubusercontent.com/Ficky-Dev/misc-scripts/main/install-postgres-native/uninstall-postgres-native.sh
+chmod +x uninstall-postgres-native.sh
+sudo ./uninstall-postgres-native.sh
+```
+
+⚠️ **DANGER**: This will permanently delete:
+- All PostgreSQL packages and dependencies
+- All databases, tables, and data
+- All users and roles
+- Configuration files (unless preserved)
+- Log files and data directories
+- PostgreSQL user account
+
+### Safety Features
+
+The uninstaller includes multiple safety layers:
+
+1. **Double Confirmation Required**:
+   - First: Type `UNINSTALL` to proceed
+   - Second: Type `DELETE-ALL-DATA` for final confirmation
+
+2. **Automatic Backup Creation**:
+   - Configuration files backed up to `/tmp/postgres_uninstall_backup_*`
+   - Package list saved for reference
+   - Backup location displayed after completion
+
+3. **Configuration Preservation Option**:
+   - Choose to preserve `/etc/postgresql` directory
+   - Useful for reinstallation with same settings
+
+4. **Comprehensive Detection**:
+   - Detects all PostgreSQL versions (9-17)
+   - Finds all data directories
+   - Lists all packages to be removed
+
+### Manual Uninstallation
+
+If you prefer manual removal:
+
+```bash
+# Stop services
+sudo systemctl stop postgresql
+sudo systemctl disable postgresql
+
+# Remove packages (adjust version as needed)
+sudo apt-get remove --purge postgresql* pgdg-keyring
+sudo apt-get autoremove
+sudo apt-get autoclean
+
+# Remove data directories (CAUTION: deletes all data)
+sudo rm -rf /var/lib/postgresql
+sudo rm -rf /etc/postgresql
+sudo rm -rf /var/log/postgresql
+
+# Remove PostgreSQL user
+sudo userdel -r postgres
+```
+
+### What Gets Removed
+
+**Packages Removed**:
+- PostgreSQL server and client packages
+- PostgreSQL contrib modules
+- Development headers and libraries
+- pgvector extension packages
+- Repository configuration
+
+**Directories Removed**:
+- `/var/lib/postgresql/` - All database data
+- `/etc/postgresql/` - Configuration files (unless preserved)
+- `/var/log/postgresql/` - Log files
+- `/usr/lib/postgresql/` - Binary files
+- `/usr/include/postgresql/` - Development headers
+
+**Services Cleaned**:
+- PostgreSQL service stopped and disabled
+- Systemd service files cleaned
+- Logrotate configurations removed
+
+### Backup Recovery
+
+After uninstallation, you can recover configurations from the backup:
+
+```bash
+# List available backups
+ls -la /tmp/postgres_uninstall_backup_*
+
+# Restore configuration (adjust paths as needed)
+sudo cp -r /tmp/postgres_uninstall_backup_YYYYMMDD_HHMMSS/config_16/main/* /etc/postgresql/16/main/
+sudo chown -R postgres:postgres /etc/postgresql/
+```
+
 ## 🐛 Reporting Issues
 
 If you encounter issues with this installer script:
